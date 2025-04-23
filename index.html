@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gambar Memantul Portrait</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+
+    .canvas-container {
+      width: auto;
+      height: 90vh;
+      aspect-ratio: 9 / 16;
+      background: #111;
+      position: relative;
+      margin: auto;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .form-wrapper {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(6px);
+      border-radius: 12px;
+      padding: 10px 16px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
+    }
+
+    .form-wrapper input, .form-wrapper button {
+      padding: 6px;
+      font-size: 14px;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 6px;
+      color: white;
+    }
+
+    .form-wrapper input::placeholder {
+      color: #ccc;
+    }
+
+    .form-wrapper button:hover {
+      background: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas-container">
+    <canvas id="pantulanCanvas"></canvas>
+  </div>
+
+  <div class="form-wrapper">
+    <div>
+      <input type="text" id="urlInput" placeholder="URL gambar..." />
+      <input type="file" id="fileInput" accept="image/*" />
+      <button onclick="tambahGambar()">Tambah</button>
+    </div>
+    <div>
+      <input type="number" id="hapusIndex" placeholder="Hapus index input..." />
+      <button onclick="hapusGambar()">Hapus</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("pantulanCanvas");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      const container = canvas.parentElement;
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    const gambarList = [];
+    let indexKelompok = 1;
+
+    function kecepatanDiagonal(min = 2, max = 4) {
+      let dx, dy;
+      do {
+        dx = (Math.random() < 0.5 ? -1 : 1) * (min + Math.random() * (max - min));
+        dy = (Math.random() < 0.5 ? -1 : 1) * (min + Math.random() * (max - min));
+      } while (Math.abs(dx) < 0.5 || Math.abs(dy) < 0.5 || Math.abs(dx / dy) < 0.3 || Math.abs(dy / dx) < 0.3);
+      return [dx, dy];
+    }
+
+    function tambahGambar() {
+      const url = document.getElementById("urlInput").value;
+      const fileInput = document.getElementById("fileInput").files[0];
+
+      let img = new Image();
+      img.crossOrigin = "anonymous";
+      
+      // Jika ada file yang dipilih
+      if (fileInput) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          img.src = e.target.result;
+          img.onload = () => {
+            tambahGambarKeCanvas(img);
+          };
+        };
+        reader.readAsDataURL(fileInput);
+      } 
+      // Jika URL gambar diisi
+      else if (url) {
+        img.src = url;
+        img.onload = () => {
+          tambahGambarKeCanvas(img);
+        };
+      }
+
+      // Reset input setelah gambar ditambahkan
+      document.getElementById("urlInput").value = "";
+      document.getElementById("fileInput").value = "";
+    }
+
+    function tambahGambarKeCanvas(img) {
+      const thisIndex = indexKelompok;
+
+      for (let i = 0; i < 3; i++) {
+        const [dx, dy] = kecepatanDiagonal();
+
+        gambarList.push({
+          image: img,
+          x: Math.random() * (canvas.width - 200),
+          y: Math.random() * (canvas.height - 200),
+          dx: dx,
+          dy: dy,
+          size: 200,
+          targetSize: 100 + Math.random() * 30,
+          shrinkSpeed: 0.3,
+          inputIndex: thisIndex,
+          startTime: performance.now()
+        });
+      }
+
+      console.log(`Input ke-${indexKelompok} dimasukkan.`);
+      indexKelompok++;
+    }
+
+    function hapusGambar() {
+      const index = parseInt(document.getElementById("hapusIndex").value);
+      if (isNaN(index)) return;
+
+      let i = 0;
+      while (i < gambarList.length) {
+        if (gambarList[i].inputIndex === index) {
+          gambarList.splice(i, 1);
+        } else {
+          i++;
+        }
+      }
+
+      console.log(`Gambar dari input ke-${index} dihapus.`);
+      document.getElementById("hapusIndex").value = "";
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let obj of gambarList) {
+        if (obj.size > obj.targetSize) {
+          obj.size -= obj.shrinkSpeed;
+        }
+
+        // Gambar gambar
+        ctx.drawImage(obj.image, obj.x, obj.y, obj.size, obj.size);
+
+        // Tampilkan nomor index grup
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.font = `${Math.max(12, obj.size / 6)}px sans-serif`; // Ukuran font dinamis
+        ctx.fillText(`${obj.inputIndex}`, obj.x + 5, obj.y + 20); // Menampilkan nomor index grup
+
+        // Gerakan gambar
+        obj.x += obj.dx;
+        obj.y += obj.dy;
+
+        // Pantulkan gambar ketika menyentuh batas canvas
+        if (obj.x < 0 || obj.x + obj.size > canvas.width) obj.dx *= -1;
+        if (obj.y < 0 || obj.y + obj.size > canvas.height) obj.dy *= -1;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
